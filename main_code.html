@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Calculation Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background: 
+                linear-gradient(rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.9)), 
+                url('Assets/images/background.jpg');
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        .ready-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            font-size: 36px;
+            z-index: 1000;
+            cursor: pointer;
+            background: 
+                linear-gradient(rgba(224, 247, 250, 0.9), rgba(224, 247, 250, 0.9)), 
+                url('Assets/images/background.jpg');
+            background-size: cover;
+            background-position: center bottom;
+        }
+        
+        .start-text {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+        .game-container {
+            text-align: center;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        .bubble {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            line-height: 80px;
+            border-radius: 50%;
+            background-color: #26c6da;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            animation: breathe 2s infinite;
+            transition: background-color 0.3s, text-decoration 0.3s;
+        }
+        .bubble:hover {
+            background-color: #00acc1;
+            text-decoration: underline;
+        }
+        @keyframes breathe {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+        .target {
+            font-size: 40px;
+            margin: 10px 0;
+        }
+        .message-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+            position: relative;
+        }
+        .message {
+            font-size: 24px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .next-button, .back-button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #00897b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            vertical-align: middle;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s, background-color 0.3s;
+        }
+        .next-button:hover, .back-button:hover {
+            background-color: #00695c;
+            transform: translateY(-2px);
+        }
+        .next-button {
+            display: none;
+            position: absolute;
+            left: calc(100% - 200px);
+        }
+        .restricted-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 20%;
+            background-color: rgba(255, 105, 180, 0.1);
+            pointer-events: none;
+        }
+        .back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ready-screen" onclick="startGame()">
+        <div>Get ready! 💪🏻</div>
+        <div class="start-text">Click any place to start</div>
+    </div>
+    <div class="game-container">
+        <button class="back-button" onclick="goBackToMenu()">⬅ Back to Menu</button>
+        <div class="restricted-area"></div>
+        <div class="target" id="targetDisplay">🎯</div>
+        <div id="bubbles"></div>
+        <div class="message-container">
+            <div class="message" id="message"></div>
+            <button id="nextButton" class="next-button" onclick="newQuestion()">Next Question »</button>
+        </div>
+    </div>
+
+    <audio id="selectSound" src="Assets/sounds/select.mp3"></audio>
+    <audio id="correctSound" src="Assets/sounds/correct.mp3"></audio>
+    <audio id="incorrectSound" src="Assets/sounds/incorrect.mp3"></audio>
+    <audio id="backgroundMusic" src="Assets/sounds/bgm.mp3" loop></audio>
+
+    <script>
+        let numbers = [];
+        let targetNumber = 0;
+        let selectedNumbers = [];
+        let currentResult = 0;
+        let currentOperation = '+';
+
+        const bubblesContainer = document.getElementById('bubbles');
+        const bubbles = [];
+        const selectSound = document.getElementById('selectSound');
+        const correctSound = document.getElementById('correctSound');
+        const incorrectSound = document.getElementById('incorrectSound');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const nextButton = document.getElementById('nextButton');
+
+        incorrectSound.volume = 0.3;
+        backgroundMusic.volume = 0.1;
+
+        const operations = [
+            { symbol: '➕', func: (a, b) => a + b },
+            { symbol: '➖', func: (a, b) => Math.abs(a - b) },
+            { symbol: '✖️', func: (a, b) => a * b },
+            { symbol: '➗', func: (a, b) => (b !== 0 && a % b === 0) ? a / b : null }
+        ];
+
+        function startGame() {
+            document.querySelector('.ready-screen').style.display = 'none';
+            document.querySelector('.game-container').style.display = 'block';
+            generateTarget();
+            setupBubbles();
+            moveBubbles();
+            updateMessage();
+            backgroundMusic.play();
+        }
+
+        window.addEventListener('load', () => {
+            backgroundMusic.play().catch(() => {
+                document.body.addEventListener('click', () => {
+                    backgroundMusic.play();
+                }, { once: true });
+            });
+        });
+
+        function generatePosition(existingBubbles) {
+            let position;
+            let overlapping;
+            do {
+                overlapping = false;
+                const left = Math.random() * 80;
+                const top = Math.random() * 60 + 20;
+                position = { left, top };
+
+                for (const bubble of existingBubbles) {
+                    const dx = bubble.left - position.left;
+                    const dy = bubble.top - position.top;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 10) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+            } while (overlapping);
+
+            return position;
+        }
+
+        function generateUniqueNumbers() {
+            const uniqueNumbers = new Set();
+            while (uniqueNumbers.size < 10) {
+                uniqueNumbers.add(Math.floor(Math.random() * 50) + 1);
+            }
+            return Array.from(uniqueNumbers);
+        }
+
+        function generateTarget() {
+            let validPairFound = false;
+            while (!validPairFound) {
+                numbers = generateUniqueNumbers();
+                const operation = operations[Math.floor(Math.random() * operations.length)];
+                currentOperation = operation.symbol;
+                const validPairs = [];
+
+                for (let i = 0; i < numbers.length; i++) {
+                    for (let j = i + 1; j < numbers.length; j++) {
+                        const result = operation.func(numbers[i], numbers[j]);
+                        if (result !== null && result <= 100) {
+                            validPairs.push({ result, pair: [numbers[i], numbers[j]] });
+                        }
+                    }
+                }
+
+                if (validPairs.length > 0) {
+                    const chosenPair = validPairs[Math.floor(Math.random() * validPairs.length)];
+                    targetNumber = chosenPair.result;
+                    numbers.push(...chosenPair.pair); // Ensure the pair is present
+                    numbers = [...new Set(numbers)]; // Keep numbers unique
+                    validPairFound = true;
+                }
+            }
+            document.getElementById('targetDisplay').textContent = `🎯 ${targetNumber} ${currentOperation}`;
+        }
+
+        function setupBubbles() {
+            bubblesContainer.innerHTML = '';
+            bubbles.length = 0;
+            numbers.forEach((num, index) => {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.textContent = num;
+
+                const position = generatePosition(bubbles);
+                bubble.style.left = `${position.left}vw`;
+                bubble.style.top = `${position.top}vh`;
+                bubble.onclick = (event) => {
+                    event.stopPropagation();
+                    selectBubble(num, bubble, index);
+                };
+
+                bubblesContainer.appendChild(bubble);
+                bubbles.push({
+                    element: bubble,
+                    dx: Math.random() * 0.02 - 0.01,
+                    dy: Math.random() * 0.02 - 0.01,
+                    ...position
+                });
+            });
+        }
+
+        function moveBubbles() {
+            bubbles.forEach((bubbleObj, i) => {
+                let bubble = bubbleObj.element;
+                let x = parseFloat(bubble.style.left);
+                let y = parseFloat(bubble.style.top);
+
+                bubbleObj.dx += Math.random() * 0.005 - 0.0025;
+                bubbleObj.dy += Math.random() * 0.005 - 0.0025;
+
+                const speedLimit = 0.02;
+                bubbleObj.dx = Math.max(Math.min(bubbleObj.dx, speedLimit), -speedLimit);
+                bubbleObj.dy = Math.max(Math.min(bubbleObj.dy, speedLimit), -speedLimit);
+
+                x += bubbleObj.dx;
+                y += bubbleObj.dy;
+
+                if (x < 0 || x > 95) bubbleObj.dx *= -1;
+                if (y < 20 || y > 80) bubbleObj.dy *= -1;
+
+                bubble.style.left = `${x}vw`;
+                bubble.style.top = `${y}vh`;
+
+                for (let j = i + 1; j < bubbles.length; j++) {
+                    if (checkCollision(bubble, bubbles[j].element)) {
+                        resolveCollision(bubbleObj, bubbles[j]);
+                    }
+                }
+            });
+            requestAnimationFrame(moveBubbles);
+        }
+
+        function checkCollision(bubble1, bubble2) {
+            const rect1 = bubble1.getBoundingClientRect();
+            const rect2 = bubble2.getBoundingClientRect();
+
+            return !(rect1.right < rect2.left || 
+                     rect1.left > rect2.right || 
+                     rect1.bottom < rect2.top || 
+                     rect1.top > rect2.bottom);
+        }
+
+        function resolveCollision(bubbleObj1, bubbleObj2) {
+            const tempDx = bubbleObj1.dx;
+            const tempDy = bubbleObj1.dy;
+            bubbleObj1.dx = bubbleObj2.dx * 0.7;
+            bubbleObj1.dy = bubbleObj2.dy * 0.7;
+            bubbleObj2.dx = tempDx * 0.7;
+            bubbleObj2.dy = tempDy * 0.7;
+
+            const overlap = 0.5;
+            bubbleObj1.element.style.left = `${parseFloat(bubbleObj1.element.style.left) + bubbleObj1.dx * overlap}vw`;
+            bubbleObj1.element.style.top = `${parseFloat(bubbleObj1.element.style.top) + bubbleObj1.dy * overlap}vh`;
+            bubbleObj2.element.style.left = `${parseFloat(bubbleObj2.element.style.left) + bubbleObj2.dx * overlap}vw`;
+            bubbleObj2.element.style.top = `${parseFloat(bubbleObj2.element.style.top) + bubbleObj2.dy * overlap}vh`;
+        }
+
+        function selectBubble(num, bubble, index) {
+            if (selectedNumbers.length === 2) return;
+
+            if (selectedNumbers.includes(index)) {
+                selectSound.play();
+                selectedNumbers = selectedNumbers.filter(i => i !== index);
+                updateCurrentResult(num, '-');
+                bubble.style.backgroundColor = '#26c6da';
+            } else {
+                selectSound.play();
+                selectedNumbers.push(index);
+                updateCurrentResult(num, '+');
+                bubble.style.backgroundColor = '#66bb6a';
+            }
+
+            updateMessage();
+        }
+
+        function updateCurrentResult(num, operation) {
+            const operationFunc = operations.find(op => op.symbol === currentOperation).func;
+            if (operation === '+') {
+                if (selectedNumbers.length === 1) {
+                    currentResult = num;
+                } else {
+                    currentResult = operationFunc(currentResult, num);
+                }
+            } else {
+                currentResult -= num; // Reverse operation (for deselection)
+            }
+        }
+
+        function updateMessage() {
+            const message = document.getElementById('message');
+            if (selectedNumbers.length === 2) {
+                const num1 = numbers[selectedNumbers[0]];
+                const num2 = numbers[selectedNumbers[1]];
+                message.textContent = `${num1} ${currentOperation} ${num2} = ${currentResult}`;
+                checkResult();
+            } else if (selectedNumbers.length === 1) {
+                const num1 = numbers[selectedNumbers[0]];
+                message.textContent = `${num1} ${currentOperation} ___ = ${targetNumber}`;
+                message.style.color = 'black';
+            } else {
+                message.textContent = `___ ${currentOperation} ___ = ${targetNumber}`;
+                message.style.color = 'black';
+            }
+        }
+
+        function checkResult() {
+            const message = document.getElementById('message');
+            if (currentResult === targetNumber) {
+                correctSound.play();
+                message.textContent += " ✔️ Correct!";
+                message.style.color = 'green';
+                nextButton.style.display = 'inline-block';
+            } else {
+                incorrectSound.play();
+                message.textContent += " ❌ Incorrect. Try again!";
+                message.style.color = 'red';
+                resetSelection(2000);
+            }
+        }
+
+        function resetSelection(timeout) {
+            setTimeout(() => {
+                selectedNumbers.forEach(index => {
+                    bubbles[index].element.style.backgroundColor = '#26c6da';
+                });
+                selectedNumbers = [];
+                currentResult = 0;
+                updateMessage();
+            }, timeout);
+        }
+
+        function newQuestion() {
+            changeBubbleColors();
+            generateTarget();
+            setupBubbles();
+            nextButton.style.display = 'none';
+            selectedNumbers = [];
+            currentResult = 0;
+            updateMessage();
+        }
+
+        function changeBubbleColors() {
+            const baseHue = Math.floor(Math.random() * 360);
+            bubbles.forEach(bubbleObj => {
+                const hue = (baseHue + Math.floor(Math.random() * 30) - 15) % 360;
+                bubbleObj.element.style.backgroundColor = `hsl(${hue}, 70%, 50%)`;
+            });
+        }
+
+        function goBackToMenu() {
+            sessionStorage.removeItem('playMusic');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

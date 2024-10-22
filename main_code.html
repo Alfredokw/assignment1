@@ -70,6 +70,7 @@
 
         .bubble:hover {
             background-color: #00acc1;
+            text-decoration: underline;
         }
 
         .static-bubble {
@@ -305,7 +306,7 @@
             { symbol: '➕', func: (a, b) => a + b },
             { symbol: '➖', func: (a, b) => Math.abs(a - b) },
             { symbol: '✖️', func: (a, b) => a * b },
-            { symbol: '➗', func: (a, b) => (b !== 0 && a % b === 0) ? a / b : null }
+            { symbol: '➗', func: (a, b) => b !== 0 ? a / b : null }
         ];
 
         function startGame() {
@@ -381,14 +382,9 @@
 
                 for (let i = 0; i < numbers.length; i++) {
                     for (let j = i + 1; j < numbers.length; j++) {
-                        let result = null;
-                        if (operation.symbol === '➗' && numbers[i] % numbers[j] === 0) {
-                            result = operation.func(numbers[i], numbers[j]);
-                        } else if (operation.symbol !== '➗') {
-                            result = operation.func(numbers[i], numbers[j]);
-                        }
-                        
-                        if (result !== null && result <= 100) {
+                        let result = operation.func(numbers[i], numbers[j]);
+
+                        if (result !== null && isFinite(result) && result <= 100 && Number.isInteger(result)) {
                             validPairs.push({ result, pair: [numbers[i], numbers[j]] });
                         }
                     }
@@ -443,7 +439,7 @@
         }
 
         function moveBubbles() {
-            const restrictedHeight = 25; // Percentage height of the restricted area
+            const restrictedHeight = 25; 
 
             bubbles.forEach((bubbleObj, i) => {
                 let bubble = bubbleObj.element;
@@ -537,9 +533,7 @@
             if (selectedNumbers.length === 2) {
                 const num1 = numbers[selectedNumbers[0]];
                 const num2 = numbers[selectedNumbers[1]];
-                const approximateResult = Math.round(currentResult);
-                const approxSymbol = approximateResult !== currentResult ? '≈' : '=';
-                message.innerHTML = `${bubblePlaceholder(num1)} ${currentOperation} ${bubblePlaceholder(num2)} ${approxSymbol} ${approximateResult}`;
+                message.innerHTML = `${bubblePlaceholder(num1)} ${currentOperation} ${bubblePlaceholder(num2)} = ${currentResult}`;
                 checkResult();
             } else if (selectedNumbers.length === 1) {
                 const num1 = numbers[selectedNumbers[0]];
@@ -563,7 +557,7 @@
                 }, 500);
             } else {
                 incorrectSound.play();
-                message.innerHTML += " ❌ Incorrect. Try again!";
+                message.innerHTML += ` ❌ Incorrect. The target number is ${targetNumber}.`;
                 message.style.color = 'red';
                 wrongCount++;
                 resetSelection(2000);

@@ -234,7 +234,9 @@
         #gameTimeInput {
             font-size: 18px;
             width: 80px;
+            height: 30px;
             margin-right: 10px;
+            margin-left: 15px;
         }
     </style>
 </head>
@@ -243,7 +245,7 @@
         <button class="back-button" onclick="goBackToMenu()">⬅ Back to Menu</button>
         <div>Get ready! 💪🏻</div>
         <div class="input-container">
-            <input type="number" id="gameTimeInput" placeholder="Minutes" value="1">
+        ⏰:<input type="number" id="gameTimeInput" placeholder="Minutes" value="1" min="1" max="999">
             <button class="start-button" onclick="startGame()">▶</button>
         </div>
     </div>
@@ -311,7 +313,13 @@
 
         function startGame() {
             const gameTimeInput = document.getElementById('gameTimeInput').value;
-            const minutes = parseInt(gameTimeInput) || 1;
+            let minutes = parseInt(gameTimeInput);
+
+            if (isNaN(minutes) || minutes < 1 || minutes > 999) {
+                alert("Please enter a valid number of minutes (1-999).");
+                return;
+            }
+
             timeLeft = minutes * 60;
 
             document.querySelector('.ready-screen').style.display = 'none';

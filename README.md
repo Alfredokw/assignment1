@@ -137,7 +137,3 @@ The CSS and JavaScript are embedded in `main_code.html`.
 | Division answer is incorrect | Select the dividend first and the divisor second. |
 | Duration is rejected | Enter a whole-number duration from 1 to 999 minutes. |
 
-## Author
-
-**Alfredo Lei**
-
